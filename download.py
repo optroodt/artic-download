@@ -1,11 +1,14 @@
 import argparse
+import asyncio
 import io
 import math
 import pathlib
 import time
 import typing
 
+import aiofiles
 import bs4
+import httpx
 import requests
 import urlobject
 from PIL import Image
@@ -121,7 +124,79 @@ def extract_data(url: str) -> (int, int, urlobject.URLObject, pathlib.Path):
     return image_width, image_height, base_url, download_name
 
 
+async def worker(name, queue, out_queue):
+    while True:
+        try:
+            x_pos, y_pos, x_size, y_size, base_url = await queue.get()
+        except:
+            break
+
+        img_url: urlobject.URLObject = generate_url(x_pos, y_pos, x_size, y_size, base_url)
+        client = httpx.AsyncClient()
+        image_bytes = io.BytesIO()
+        async with client.stream("GET", img_url) as response:
+            async for chunk in response.aiter_bytes():
+                image_bytes.write(chunk)
+
+        await out_queue.put((x_pos, y_pos, image_bytes))
+
+        qsize = out_queue.qsize()
+        if qsize % 100 == 0:
+            print(f"Downloaded {qsize} image parts...")
+        # Notify the queue that the "work item" has been processed.
+        queue.task_done()
+
+
+async def main(url):
+    # https://www.artic.edu/iiif/2/831a05de-d3f6-f4fa-a460-23008dd58dda
+    max_width, max_height, base_url, download_name = extract_data(url)
+    print(f"Starting download of {download_name}")
+    print(f"Hi-res image is {max_width}x{max_height}. {base_url}")
+
+    # Create a queue that we will use to store our workload.
+    queue = asyncio.Queue()
+    out_queue = asyncio.Queue()
+
+    blocks = generate_blocks(max_width, max_height, BLOCK_SIZE)
+    print(f"Need to download {len(blocks)} image parts...")
+
+    for (x_pos, y_pos, x_size, y_size) in blocks:
+        queue.put_nowait((x_pos, y_pos, x_size, y_size, base_url))
+
+    # Create three worker tasks to process the queue concurrently.
+    tasks = []
+    for i in range(6):
+        task = asyncio.create_task(worker(f"worker-{i}", queue, out_queue))
+        tasks.append(task)
+
+    await queue.join()
+
+    # Cancel our worker tasks.
+    for task in tasks:
+        task.cancel()
+
+    # Wait until all worker tasks are cancelled.
+    await asyncio.gather(*tasks, return_exceptions=True)
+    print('start stitching')
+    destination = Image.new("RGB", (max_width, max_height))
+
+    while True:
+        x_pos, y_pos, image_bytes = await out_queue.get()
+        destination.paste(Image.open(image_bytes), (x_pos, y_pos))
+        out_queue.task_done()
+        if out_queue.empty():
+            break
+
+    print(f"Saving final image {download_name}")
+    if not download_name.suffix == ".jpg":
+        download_name = download_name.with_suffix(".jpg")
+
+    final_path = "output2" / download_name
+    destination.save(final_path)
+
+
 if __name__ == "__main__":
     args = get_arguments()
+    asyncio.run(main(args.url))
     # test_url = "https://www.artic.edu/artworks/111628/nighthawks"
-    download_hires_image(args.url)
+    # download_hires_image(args.url)

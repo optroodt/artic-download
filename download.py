@@ -15,12 +15,13 @@ from PIL import Image
 BLOCK_SIZE = 256
 PER_REQUEST_DELAY_SECONDS = 0.2
 SLEEP_DELAY_ON_ERROR_SECONDS = 180
-WORKER_TASK_COUNT = 2
+DEFAULT_WORKER_TASK_COUNT = 2
 
 
 def get_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("url")
+    parser.add_argument("--workers", default=DEFAULT_WORKER_TASK_COUNT, type=int)
     parser.add_argument("--format", default="jpg", choices=["jpg", "png"])
     return parser.parse_args()
 
@@ -183,7 +184,7 @@ async def worker(name, queue, out_queue):
         queue.task_done()
 
 
-async def main(url: str, file_format: str) -> None:
+async def main(url: str, workers: int, file_format: str) -> None:
     # https://www.artic.edu/iiif/2/831a05de-d3f6-f4fa-a460-23008dd58dda
     max_width, max_height, base_url, download_name = extract_data(url)
     print(f"Starting download of {download_name} ({file_format})")
@@ -201,8 +202,8 @@ async def main(url: str, file_format: str) -> None:
 
     # Create some worker tasks to process the queue concurrently.
     tasks = []
-    print(f"Creating {WORKER_TASK_COUNT} workers")
-    for i in range(WORKER_TASK_COUNT):
+    print(f"Creating {workers} workers")
+    for i in range(workers):
         task = asyncio.create_task(worker(f"worker-{i}", queue, out_queue))
         tasks.append(task)
 
@@ -234,6 +235,6 @@ async def main(url: str, file_format: str) -> None:
 
 if __name__ == "__main__":
     args = get_arguments()
-    asyncio.run(main(args.url, args.format))
+    asyncio.run(main(args.url, args.workers, args.format))
     # test_url = "https://www.artic.edu/artworks/111628/nighthawks"
     # download_hires_image(args.url)

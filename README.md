@@ -1,5 +1,10 @@
 # artic-download
-Download hi-res images from the Art Institute Chicago
+Download hi-res images from the Art Institute Chicago.
+
+As far as I'm aware, works of art cannot easily be downloaded in their highest resolution as a single file. Therefor 
+you need to download hundreds or thousands of smaller tiles and stitch them together to make a single image. 
+
+The script uses httpx to download images async and multiple workers to do it concurrently.
 
 ## Usage
 ```commandline
@@ -7,6 +12,11 @@ python download "https://www.artic.edu/artworks/111628/nighthawks"
 ```
 The image will be downloaded into `output/`
 
+## TODO
+- support downloading supported file formats other than jpg (e.g. png, tif)
+- clean up the code :)
+
+## Notes
 Sample element from which we can extract key data
 ```
 """
@@ -25,4 +35,9 @@ Sample element from which we can extract key data
             aria-label="show alternative image"
             disabled
 """
+```
+
+More metadata can be found in 
+```commandline
+https://www.artic.edu/iiif/2/f95a0a70-90c5-2806-2a66-68f27f8c0735/info.json
 ```

@@ -7,6 +7,14 @@ you need to download hundreds or thousands of smaller tiles and stitch them toge
 The script uses httpx to download images async and multiple workers to do it concurrently.
 
 ## Usage
+
+First install the requirements:
+```commandline
+pip install -r requirements.txt
+```
+
+Find an image you like from the [Art Institure Chicago](https://www.artic.edu/collection) and download it!
+
 ```commandline
 python download "https://www.artic.edu/artworks/111628/nighthawks"
 ```

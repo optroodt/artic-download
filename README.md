@@ -13,7 +13,7 @@ First install the requirements:
 pip install -r requirements.txt
 ```
 
-Find an image you like from the [Art Institure Chicago](https://www.artic.edu/collection) and download it!
+Find an image you like from the [Art Institute Chicago](https://www.artic.edu/collection) and download it!
 
 ```commandline
 python download "https://www.artic.edu/artworks/111628/nighthawks"
